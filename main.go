@@ -8,12 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 func main() {
 
 	server := http.NewServeMux()
-	server.HandleFunc("GET /", HandleRequest)
+	server.HandleFunc("/", HandleRequest)
 
 	if err := http.ListenAndServe(":8080", server); err != nil {
 		fmt.Println("Server error:", err)
@@ -21,8 +22,21 @@ func main() {
 
 }
 
+var waitGroup sync.WaitGroup
+var mutex sync.Mutex
+
 func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
+	waitGroup.Add(1)
+	go func() {
+		handleWorker(path, res)
+		defer waitGroup.Done()
+	}()
+
+	waitGroup.Wait()
+}
+
+func handleWorker(path string, res http.ResponseWriter) {
 	log.Println(path + " ")
 	if path == "/" {
 		path = "/index.html"
@@ -35,6 +49,8 @@ func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	file_path := filepath.Join(working_directory, "www", path)
 	file, err := os.OpenFile(file_path, os.O_RDONLY, os.FileMode('r'))
 	if err != nil {
+		mutex.Lock()
+		defer mutex.Unlock()
 		res.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(res, "404! Not Found!")
 		return
@@ -60,7 +76,10 @@ func HandleRequest(res http.ResponseWriter, req *http.Request) {
 		content_type = "text/plain"
 	}
 	// http.DetectContentType(content)
+	mutex.Lock()
+	defer mutex.Unlock()
 	res.Header().Set("Content-Type", content_type)
 	res.WriteHeader(http.StatusOK)
 	res.Write(content)
+
 }
