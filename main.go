@@ -23,7 +23,7 @@ func main() {
 
 func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
-	log.Println(path + " ")
+	// log.Println(path + " ")
 	if path == "/" {
 		path = "/index.html"
 	}
